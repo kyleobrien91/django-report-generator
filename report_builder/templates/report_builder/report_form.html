@@ -24,7 +24,7 @@
         Related Fields:
         <input type="text" class="search_box" onkeyup="filter(this, 'related_fields_ol')" placeholder="Search Fields"/>
         <ol class="tree" id="related_fields_ol" style="padding-left: 0px; margin: 0px;">
-          <li class="tree_expanded">
+          <li class="tree_expanded" data-model-id="{{ object.root_model_id }}">
             <span class="button highlight" onclick="show_fields(event, '{{ object.root_model_id }}', '', '');">
               {{ object.root_model }}
             </span>

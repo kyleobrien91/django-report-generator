@@ -15,34 +15,26 @@ from django.db.models.fields.related import ReverseManyRelatedObjectsDescriptor
 from django.forms.models import inlineformset_factory
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import (
-    render_to_response,
     redirect,
     get_object_or_404,
-    render)
-from django.template import RequestContext
+    )
 from .models import Report, DisplayField, FilterField, Format
-from .utils import (
-    javascript_date_format,
-    duplicate,
-)
+from .utils import *
 from django.utils.decorators import method_decorator
 from django.views.generic.edit import CreateView, UpdateView
 from django.views.generic import TemplateView, View
 from django import forms
 
-from report_utils.model_introspection import get_relation_fields_from_model
-from report_utils.mixins import GetFieldsMixin, DataExportMixin
+from .mixins import GetFieldsMixin, DataExportMixin
 
-import warnings
 import datetime
 import time
 import re
 from decimal import Decimal
-from numbers import Number
 import copy
 from dateutil import parser
 import json
-import logging
+
 
 class ReportForm(forms.ModelForm):
     class Meta:
@@ -175,27 +167,31 @@ def filter_property(filter_field, value):
 
 
 class AjaxGetRelated(GetFieldsMixin, TemplateView):
-    logger = logging.getLogger('swordfish')
-    logger.debug('Getting related')
-
     template_name = "report_builder/report_form_related_li.html"
     
     def get_context_data(self, **kwargs):
+
         context = super(AjaxGetRelated, self).get_context_data(**kwargs)
+
         request = self.request
+
         model_class = ContentType.objects.get(pk=request.GET['model']).model_class()
         path = request.GET['path']
         path_verbose = request.GET['path_verbose']
+        exclude = request.GET.getlist('exclude[]')
         
         new_fields, model_ct, path = self.get_related_fields(
-            model_class,
-            request.GET['field'],
-            path,
-            path_verbose,)
+                                        model_class,
+                                        request.GET['field'],
+                                        path,
+                                        path_verbose,
+                                        exclude
+                                     )
         context['model_ct'] = model_ct
         context['related_fields'] = new_fields
         context['path'] = path
         context['path_verbose'] = path_verbose
+
         return context
     
 
@@ -212,7 +208,8 @@ def fieldset_string_to_field(fieldset_dict, model):
         i += 1
 
 def get_fieldsets(model):
-    """ fieldsets are optional, they are defined in the Model.
+    """
+    fieldsets are optional, they are defined in the Model.
     """
     fieldsets = getattr(model, 'report_builder_fieldsets', None)
     if fieldsets:
@@ -221,39 +218,30 @@ def get_fieldsets(model):
     return fieldsets
 
 class AjaxGetFields(GetFieldsMixin, TemplateView):
-    """ 
-    Get fields from a particular model. 
-    Used when a user clicks on an object name on the left hand sidebar 
-    """
+    """ Get fields from a particular model """
     template_name = 'report_builder/report_form_fields_li.html'
     
     def get_context_data(self, **kwargs):
         context = super(AjaxGetFields, self).get_context_data(**kwargs)
-        logger = logging.getLogger('swordfish')
-        
-        # The field name here is actually the related object to the parent model that
-        # gets chosen on the left hand side of the screen
-        field_name = self.request.GET.get('field')
-        
-        # This is a class object of the parent of the selected related object
-        model_class = ContentType.objects.get(pk=self.request.GET['model']).model_class()
 
-        # we get a string that has two underscores appended to the parent 
-        # object's name
-        path = self.request.GET['path']
-        path_verbose = self.request.GET.get('path_verbose')
+        # Get variables from the request
+        request = self.request
 
-        # Return's the parent model name
-        root_model = model_class.__name__.lower()
-        
+        field_name = request.GET.get('field')
+        path = request.GET['path']
+        path_verbose = request.GET.get('path_verbose')
+        model_id = request.GET.get('model')
+
+        model_class = ContentType.objects.get(pk=model_id).model_class()
+
+        # Get fields within the selected model field. Also returns some meta data
         field_data = self.get_fields(model_class, field_name, path, path_verbose)
 
+        #Copy the context and add the field data to the context
         ctx = context.copy()
         ctx.update(field_data.items())
 
-        logger.debug(field_data)
-        return field_data
-        # return dict(context + field_data)
+        return ctx
 
 @staff_member_required
 def ajax_get_choices(request):
@@ -294,12 +282,12 @@ class AjaxPreview(DataExportMixin, TemplateView):
         context = super(AjaxPreview, self).get_context_data(**kwargs)
         report = get_object_or_404(Report, pk=self.request.POST['report_id'])
         queryset, message = report.get_query()
-        property_filters = report.report_filter_fields.filter(
+        property_filters = report.filterfield_set.filter(
             Q(field_verbose__contains='[property]') | Q(field_verbose__contains='[custom')
         )
         objects_list, message = self.report_to_list(
             queryset,
-            report.report_display_fields.all(),
+            report.displayfield_set.all(),
             self.request.user,
             property_filters=property_filters,
             preview=True,)
@@ -389,19 +377,19 @@ class DownloadXlsxView(DataExportMixin, View):
         user = User.objects.get(pk=user_id)
         if not queryset:
             queryset, message = report.get_query()
-        property_filters = report.report_filter_fields.filter(
+        property_filters = report.filterfield_set.filter(
             Q(field_verbose__contains='[property]') | Q(field_verbose__contains='[custom')
         )
         objects_list, message = self.report_to_list(
             queryset,
-            report.report_display_fields.all(),
+            report.displayfield_set.all(),
             user,
             property_filters=property_filters,
             preview=False,)
         title = re.sub(r'\W+', '', report.name)[:30]
         header = []
         widths = []
-        for field in report.report_display_fields.all():
+        for field in report.displayfield_set.all():
             header.append(field.name)
             widths.append(field.width)
             
@@ -453,12 +441,12 @@ def create_copy(request, pk):
         ('user_modified', request.user),
     ))
     # duplicate does not get related
-    for display in report.report_display_fields.all():
+    for display in report.displayfield_set.all():
         new_display = copy.copy(display)
         new_display.pk = None
         new_display.report = new_report
         new_display.save()
-    for report_filter in report.report_filter_fields.all():
+    for report_filter in report.filterfield_set.all():
         new_filter = copy.copy(report_filter)
         new_filter.pk = None
         new_filter.report = new_report

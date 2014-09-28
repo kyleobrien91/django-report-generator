@@ -45,11 +45,19 @@ function get_async_report(report_id) {
 
 function expand_related(event, model, field, path, path_verbose) {
     if (event.target.tagName != 'LI') return;
+
     var element = $(event.target);
+
     if ( $(element).hasClass('tree_closed') ){
-        $.get(  
+        expanded_elements = [];
+
+        $('li.tree_expanded').each(function(){
+            expanded_elements.push($(this).data('model-id'));
+        });
+
+        $.get(
             path_prefix + "/report_builder/ajax_get_related/",  
-            {model: model, field: field, path: path, path_verbose: path_verbose},
+            {model: model, field: field, path: path, path_verbose: path_verbose, exclude: expanded_elements},
             function(data){
                 $(element).addClass('tree_expanded');
                 $(element).removeClass('tree_closed');

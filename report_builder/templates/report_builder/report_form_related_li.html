@@ -2,7 +2,10 @@
     {% for field in related_fields %}
         <li
             class="tree_closed"
-            onclick="expand_related(event, '{{ model_ct.id }}', '{{ field.field_name }}', '{{ path }}', '{{ path_verbose }}')">
+            onclick="expand_related(event, '{{ model_ct.id }}', '{{ field.field_name }}', '{{ path }}', '{{ path_verbose }}')"
+            data-model-id="{{ field.field_ct.id }}"
+        >
+            {{field.id}}
             <span \
             class="button"
                   onclick="show_fields(event, '{{ model_ct.id }}', '{{ field.field_name }}','{{ path }}', '{{ path_verbose }}');">
