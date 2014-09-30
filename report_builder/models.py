@@ -6,9 +6,7 @@ from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.db import models
 from django.db.models import Avg, Min, Max, Count, Sum
-# from django.db.models.signals import post_save
 from report_builder.unique_slugify import unique_slugify
-# from report_utils.model_introspection import get_model_from_path_string
 from .utils import get_model_manager, get_allowed_models, get_model_from_path_string
 from dateutil import parser
 
