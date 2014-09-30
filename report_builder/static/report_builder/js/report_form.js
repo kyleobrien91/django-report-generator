@@ -102,32 +102,32 @@ function enable_drag() {
             
             if (name == '') return;
             
-            total_forms = $('#id_displayfield_set-TOTAL_FORMS');
+            total_forms = $('#id_report_display_fields-TOTAL_FORMS');
             i = total_forms.val();
             total_forms.val(parseInt(i)+1);
             
             row_html = '<tr><td><span style="cursor: move;" class="ui-icon ui-icon-arrowthick-2-n-s"></span></td>';
-            row_html += '<td><input type="checkbox" name="displayfield_set-'+i+'-DELETE" id="id_displayfield_set-'+i+'-DELETE">';
-            row_html += '<td>'+field+'<input id="id_displayfield_set-'+i+'-path_verbose" name="displayfield_set-'+i+'-path_verbose" readonly="readonly" type="hidden" value="' + path_verbose + '"/>';
-            row_html += '<input id="id_displayfield_set-'+i+'-field_verbose" name="displayfield_set-'+i+'-field_verbose" readonly="readonly" type="hidden" value="' + field + '"/><input id="id_displayfield_set-'+i+'-path" name="displayfield_set-'+i+'-path" type="hidden" value="' + path + '"/></td>';
-            row_html += '<td><input id="id_displayfield_set-'+i+'-field" name="displayfield_set-'+i+'-field" type="hidden" value="' + label + '"/>'
-            row_html += '<input id="id_displayfield_set-'+i+'-name" name="displayfield_set-'+i+'-name" type="text" value="' + name + '"/></td>';
-            row_html += '<td><input type="text" name="displayfield_set-'+i+'-sort" class="small_input" id="id_displayfield_set-'+i+'-sort">';
-            row_html += '<input type="checkbox" name="displayfield_set-'+i+'-sort_reverse" id="id_displayfield_set-'+i+'-sort_reverse"></td>';
-            row_html += '<td><input type="text" name="displayfield_set-'+i+'-width" class="small_input" value="15" id="id_displayfield_set-'+i+'-width"></td>';
+            row_html += '<td><input type="checkbox" name="report_display_fields-'+i+'-DELETE" id="id_report_display_fields-'+i+'-DELETE">';
+            row_html += '<td>'+field+'<input id="id_report_display_fields-'+i+'-path_verbose" name="report_display_fields-'+i+'-path_verbose" readonly="readonly" type="hidden" value="' + path_verbose + '"/>';
+            row_html += '<input id="id_report_display_fields-'+i+'-field_verbose" name="report_display_fields-'+i+'-field_verbose" readonly="readonly" type="hidden" value="' + field + '"/><input id="id_report_display_fields-'+i+'-path" name="report_display_fields-'+i+'-path" type="hidden" value="' + path + '"/></td>';
+            row_html += '<td><input id="id_report_display_fields-'+i+'-field" name="report_display_fields-'+i+'-field" type="hidden" value="' + label + '"/>'
+            row_html += '<input id="id_report_display_fields-'+i+'-name" name="report_display_fields-'+i+'-name" type="text" value="' + name + '"/></td>';
+            row_html += '<td><input type="text" name="report_display_fields-'+i+'-sort" class="small_input" id="id_report_display_fields-'+i+'-sort">';
+            row_html += '<input type="checkbox" name="report_display_fields-'+i+'-sort_reverse" id="id_report_display_fields-'+i+'-sort_reverse"></td>';
+            row_html += '<td><input type="text" name="report_display_fields-'+i+'-width" class="small_input" value="15" id="id_report_display_fields-'+i+'-width"></td>';
             if ( field.indexOf("[custom") == -1 && field.indexOf("[property") == -1 ) {
-                row_html += '<td onclick="aggregate_tip(event)"><select id="id_displayfield_set-'+i+'-aggregate" name="displayfield_set-'+i+'-aggregate"><option selected="selected" value="">---------</option><option value="Sum">Sum</option><option value="Count">Count</option><option value="Avg">Avg</option><option value="Max">Max</option><option value="Min">Min</option></select></td>';
+                row_html += '<td onclick="aggregate_tip(event)"><select id="id_report_display_fields-'+i+'-aggregate" name="report_display_fields-'+i+'-aggregate"><option selected="selected" value="">---------</option><option value="Sum">Sum</option><option value="Count">Count</option><option value="Avg">Avg</option><option value="Max">Max</option><option value="Min">Min</option></select></td>';
             } else {
                 row_html += '<td></td>'
             }
-            row_html += '<td><select id="id_displayfield_set-'+i+'-display_format" name="displayfield_set-'+i+'-display_format"> /* populate options from DB on drop */ </select></td>';
-            row_html += '<td><input type="checkbox" class="small_input" name="displayfield_set-'+i+'-total" id="id_displayfield_set-'+i+'-total"></td>';
-            row_html += '<td><input type="checkbox" name="displayfield_set-'+i+'-group" id="id_displayfield_set-'+i+'-group">';
-            row_html += '<span class="hide_me"><input type="text" name="displayfield_set-'+i+'-position" value="'+total_forms.val()+'" id="id_displayfield_set-'+i+'-position"></span></td>';
+            row_html += '<td><select id="id_report_display_fields-'+i+'-display_format" name="report_display_fields-'+i+'-display_format"> /* populate options from DB on drop */ </select></td>';
+            row_html += '<td><input type="checkbox" class="small_input" name="report_display_fields-'+i+'-total" id="id_report_display_fields-'+i+'-total"></td>';
+            row_html += '<td><input type="checkbox" name="report_display_fields-'+i+'-group" id="id_report_display_fields-'+i+'-group">';
+            row_html += '<span class="hide_me"><input type="text" name="report_display_fields-'+i+'-position" value="'+total_forms.val()+'" id="id_report_display_fields-'+i+'-position"></span></td>';
             row_html += '</tr>';
             $('#field_list_table > tbody:last').append(row_html);
 
-            get_formats($('#'+'id_displayfield_set-'+i+'-display_format'));
+            get_formats($('#'+'id_report_display_fields-'+i+'-display_format'));
 
         }
 

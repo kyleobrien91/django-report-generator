@@ -216,7 +216,7 @@ class DataExportMixin(object):
         or user.has_perm(model_class._meta.app_label + '.view_' + model_class._meta.model_name):
 
             def increment_total(display_field_key, display_totals, val):
-                if display_totals.has_key(display_field_key):
+                if display_field_key in display_totals:
                     # Booleans are Numbers - blah
                     if isinstance(val, Number) and not isinstance(val, bool):
                         # do decimal math for all numbers
@@ -379,7 +379,7 @@ class DataExportMixin(object):
             display_totals_row = []
 
             fields_and_properties = list(display_field_paths[1:])
-            for position, value in property_list.iteritems():
+            for position, value in property_list.items():
                 fields_and_properties.insert(position, value)
             for i, field in enumerate(fields_and_properties):
                 if field in display_totals.keys():

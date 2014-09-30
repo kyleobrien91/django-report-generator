@@ -42,24 +42,38 @@ class Report(models.Model):
 
 
     def add_aggregates(self, queryset):
-        for display_field in self.displayfield_set.filter(aggregate__isnull=False):
-            if display_field.aggregate == "Avg":
-                queryset = queryset.annotate(Avg(display_field.path + display_field.field))
-            elif display_field.aggregate == "Max":
-                queryset = queryset.annotate(Max(display_field.path + display_field.field))
-            elif display_field.aggregate == "Min":
-                queryset = queryset.annotate(Min(display_field.path + display_field.field))
-            elif display_field.aggregate == "Count":
-                queryset = queryset.annotate(Count(display_field.path + display_field.field))
-            elif display_field.aggregate == "Sum":
-                queryset = queryset.annotate(Sum(display_field.path + display_field.field))
+
+        display_fields_with_aggregate = self.report_display_fields.filter(aggregate__isnull=False)
+
+        for display_field in display_fields_with_aggregate:
+
+            aggregate_method = display_field.aggregate
+
+            aggregate_value = display_field.path + display_field.field
+
+            aggregated = False
+
+            if aggregate_method == "Avg":
+                aggregated = Avg(aggregate_value)
+            elif aggregate_method == "Max":
+                aggregated = Max(aggregate_value)
+            elif aggregate_method == "Min":
+                aggregated = Min(aggregate_value)
+            elif aggregate_method == "Count":
+                aggregated = Count(aggregate_value)
+            elif aggregate_method == "Sum":
+                aggregated = Sum(aggregate_value)
+
+            if aggregated:
+                queryset = queryset.annotate(aggregated)
+
         return queryset
 
 
     def get_query(self):
         report = self
         model_class = report.root_model.model_class()
-        message= ""
+        message = ""
 
         # Check for report_builder_model_manger property on the model
         if getattr(model_class, 'report_builder_model_manager', False):
@@ -69,62 +83,8 @@ class Report(models.Model):
             manager = get_model_manager()
             objects = getattr(model_class, manager).all()
 
-        # Filters
-        # NOTE: group all the filters together into one in order to avoid 
-        # unnecessary joins
-        filters = {}
-        excludes = {}
-        for filter_field in report.filterfield_set.all():
-            try:
-                # exclude properties from standard ORM filtering 
-                if '[property]' in filter_field.field_verbose:
-                    continue
-                if '[custom' in filter_field.field_verbose:
-                    continue
-
-                filter_string = str(filter_field.path + filter_field.field)
-                
-                if filter_field.filter_type:
-                    filter_string += '__' + filter_field.filter_type
-                
-                # Check for special types such as isnull
-                if filter_field.filter_type == "isnull" and filter_field.filter_value == "0":
-                    filter_ = {filter_string: False}
-                elif filter_field.filter_type == "in":
-                    filter_ = {filter_string: filter_field.filter_value.split(',')}
-                else:
-                    # All filter values are stored as strings, but may need to be converted
-                    if '[Date' in filter_field.field_verbose:
-                        filter_value = parser.parse(filter_field.filter_value)
-                        if settings.USE_TZ:
-                            filter_value = timezone.make_aware(
-                                filter_value,
-                                timezone.get_current_timezone()
-                            )
-                        if filter_field.filter_type == 'range':
-                            filter_value = [filter_value, parser.parse(filter_field.filter_value2)]
-                            if settings.USE_TZ:
-                                filter_value[1] = timezone.make_aware(
-                                    filter_value[1],
-                                    timezone.get_current_timezone()
-                                )
-                    else:
-                        filter_value = filter_field.filter_value
-                        if filter_field.filter_type == 'range':
-                            filter_value = [filter_value, filter_field.filter_value2]
-                    filter_ = {filter_string: filter_value}
-
-                if not filter_field.exclude:
-                    filters.update(filter_) 
-                else:
-                    excludes.update(filter_) 
-
-            except Exception:
-                import sys
-                e = sys.exc_info()[1]
-                message += "Filter Error on %s. If you are using the report builder then " % filter_field.field_verbose
-                message += "you found a bug! "
-                message += "If you made this in admin, then you probably did something wrong."
+        filter_fields = FilterField()
+        filters, excludes, message = filter_fields.get_report_filters(report)
 
         if filters:
             objects = objects.filter(**filters)
@@ -132,13 +92,83 @@ class Report(models.Model):
             objects = objects.exclude(**excludes)
 
         # Aggregates
-        objects = self.add_aggregates(objects) 
+        objects = report.add_aggregates(objects)
 
         # Distinct
         if report.distinct:
             objects = objects.distinct()
 
         return objects, message
+
+        # Filters
+        # NOTE: group all the filters together into one in order to avoid 
+        # unnecessary joins
+        # filters = {}
+        # excludes = {}
+        #
+        # all_filter_fields = report.report_filter_fields.all()
+        #
+        # for filter_field in all_filter_fields:
+        #     try:
+        #         verbose_name = filter_field.field_verbose
+        #         filter_type = filter_field.filter_type
+        #         path = filter_field.path
+        #         field = filter_field.field
+        #         filter_string = ''
+        #         filter_value = filter_field.filter_value
+        #
+        #
+        #         # exclude properties from standard ORM filtering
+        #         if '[property]' in verbose_name or '[custom' in verbose_name:
+        #             continue
+        #
+        #         filter_string = str(path + field)
+        #
+        #         if filter_type:
+        #             filter_string += '__' + filter_type
+        #
+        #         # Check for special types such as isnull
+        #         if filter_type == "isnull" and filter_value == "0":
+        #             filter_ = {filter_string: False}
+        #
+        #         elif filter_field.filter_type == "in":
+        #             filter_ = {filter_string: filter_field.filter_value.split(',')}
+        #
+        #         else:
+        #             # All filter values are stored as strings, but may need to be converted
+        #             if '[Date' in filter_field.field_verbose:
+        #                 filter_value = parser.parse(filter_field.filter_value)
+        #                 if settings.USE_TZ:
+        #                     filter_value = timezone.make_aware(
+        #                         filter_value,
+        #                         timezone.get_current_timezone()
+        #                     )
+        #                 if filter_field.filter_type == 'range':
+        #                     filter_value = [filter_value, parser.parse(filter_field.filter_value2)]
+        #                     if settings.USE_TZ:
+        #                         filter_value[1] = timezone.make_aware(
+        #                             filter_value[1],
+        #                             timezone.get_current_timezone()
+        #                         )
+        #             else:
+        #                 filter_value = filter_field.filter_value
+        #                 if filter_field.filter_type == 'range':
+        #                     filter_value = [filter_value, filter_field.filter_value2]
+        #             filter_ = {filter_string: filter_value}
+        #
+        #         if not filter_field.exclude:
+        #             filters.update(filter_)
+        #         else:
+        #             excludes.update(filter_)
+        #
+        #     except Exception:
+        #         import sys
+        #         e = sys.exc_info()[1]
+        #         message += "Filter Error on %s. If you are using the report builder then " % filter_field.field_verbose
+        #         message += "you found a bug! "
+        #         message += "If you made this in admin, then you probably did something wrong."
+
+
 
 
     def get_absolute_url(self):
@@ -178,9 +208,10 @@ class Report(models.Model):
 
 
     def check_report_display_field_positions(self):
-        """ After report is saved, make sure positions are sane
         """
-        for i, display_field in enumerate(self.displayfield_set.all()):
+        After report is saved, make sure positions are sane
+        """
+        for i, display_field in enumerate(self.report_display_fields.all()):
             if display_field.position != i+1:
                 display_field.position = i+1
                 display_field.save()
@@ -193,6 +224,11 @@ class Format(models.Model):
     string = models.CharField(max_length=300, blank=True, default='',
                               help_text='Python string format. Ex ${} would place a $ in front of the result.')
 
+
+    def __str__(self):
+        return self.name
+
+
     def __unicode__(self):
         return self.name
     
@@ -201,12 +237,18 @@ class DisplayField(models.Model):
     """
     A display field to show in a report. Always belongs to a Report
     """
+    AGC_SUM = 'Sum'
+    AGC_COUNT = 'Count'
+    AGC_AVG = 'Avg'
+    AGC_MAX = 'Max'
+    AGC_MIN = 'Min'
+
     AGGREGATE_CHOICES = (
-        ('Sum','Sum'),
-        ('Count','Count'),
-        ('Avg','Avg'),
-        ('Max','Max'),
-        ('Min','Min'),
+        (AGC_SUM,'Sum'),
+        (AGC_COUNT,'Count'),
+        (AGC_AVG,'Avg'),
+        (AGC_MAX,'Max'),
+        (AGC_MIN,'Min'),
     )
 
     path = models.CharField(max_length=2000, blank=True)
@@ -215,20 +257,21 @@ class DisplayField(models.Model):
     field_verbose = models.CharField(max_length=2000)
     name = models.CharField(max_length=2000)
     sort = models.IntegerField(blank=True, null=True)
-    sort_reverse = models.BooleanField(verbose_name="Reverse", default=False)
+    sort_reverse = models.BooleanField(verbose_name="Reverse Order", default=False)
     width = models.IntegerField(default=15)
     aggregate = models.CharField(max_length=5, choices = AGGREGATE_CHOICES, blank = True)
     position = models.PositiveSmallIntegerField(blank = True, null = True)
     total = models.BooleanField(default=False)
     group = models.BooleanField(default=False)
 
-    report = models.ForeignKey(Report)
+    report = models.ForeignKey(Report, related_name='report_display_fields')
     display_format = models.ForeignKey(Format, blank=True, null=True)
 
 
     class Meta:
         ordering = ['position']
-    
+
+
     def get_choices(self, model, field_name):
         try:
             model_field = model._meta.get_field_by_name(field_name)[0]
@@ -237,6 +280,7 @@ class DisplayField(models.Model):
         if model_field and model_field.choices:
             # See https://github.com/burke-software/django-report-builder/pull/93
             return ((model_field.get_prep_value(key), val) for key, val in model_field.choices)
+
 
     @property
     def choices_dict(self):
@@ -247,11 +291,17 @@ class DisplayField(models.Model):
                 choices_dict.update({choice[0]: choice[1]})
         return choices_dict
 
+
     @property
     def choices(self):
         if self.pk:
             model = get_model_from_path_string(self.report.root_model.model_class(), self.path)
             return self.get_choices(model, self.field)
+
+
+    def __str__(self):
+        return self.name
+
 
     def __unicode__(self):
         return self.name
@@ -302,7 +352,6 @@ class FilterField(models.Model):
         (FT_IREGEX,'Reg. Exp. (case-insensitive)')
     )
 
-    report = models.ForeignKey(Report)
     path = models.CharField(max_length=2000, blank=True)
     path_verbose = models.CharField(max_length=2000, blank=True)
     field = models.CharField(max_length=2000)
@@ -313,9 +362,13 @@ class FilterField(models.Model):
     exclude = models.BooleanField(default=False)
     position = models.PositiveSmallIntegerField(blank = True, null = True)
 
+    report = models.ForeignKey(Report, related_name='report_filter_fields')
+
+
     class Meta:
         ordering = ['position']
-    
+
+
     def clean(self):
         if self.filter_type == "range":
             if self.filter_value2 in [None, ""]:
@@ -336,6 +389,79 @@ class FilterField(models.Model):
         if self.pk:
             model = get_model_from_path_string(self.report.root_model.model_class(), self.path)
             return self.get_choices(model, self.field)
+
+    def get_report_filters(self, report):
+        filters = {}
+        excludes = {}
+        message = ''
+
+        all_filter_fields = report.report_filter_fields.all()
+
+        for filter_field in all_filter_fields:
+            try:
+                verbose_name = filter_field.field_verbose
+                filter_type = filter_field.filter_type
+                path = filter_field.path
+                field = filter_field.field
+                filter_string = ''
+                filter_value = filter_field.filter_value
+
+
+                # exclude properties from standard ORM filtering
+                if '[property]' in verbose_name or '[custom' in verbose_name:
+                    continue
+
+                filter_string = str(path + field)
+
+                if filter_type:
+                    filter_string += '__' + filter_type
+
+                # Check for special types such as isnull
+                if filter_type == "isnull" and filter_value == "0":
+                    filter_ = {filter_string: False}
+
+                elif filter_field.filter_type == "in":
+                    filter_ = {filter_string: filter_field.filter_value.split(',')}
+
+                else:
+                    # All filter values are stored as strings, but may need to be converted
+                    if '[Date' in filter_field.field_verbose:
+                        filter_value = parser.parse(filter_field.filter_value)
+                        if settings.USE_TZ:
+                            filter_value = timezone.make_aware(
+                                filter_value,
+                                timezone.get_current_timezone()
+                            )
+                        if filter_field.filter_type == 'range':
+                            filter_value = [filter_value, parser.parse(filter_field.filter_value2)]
+                            if settings.USE_TZ:
+                                filter_value[1] = timezone.make_aware(
+                                    filter_value[1],
+                                    timezone.get_current_timezone()
+                                )
+                    else:
+                        filter_value = filter_field.filter_value
+                        if filter_field.filter_type == 'range':
+                            filter_value = [filter_value, filter_field.filter_value2]
+                    filter_ = {filter_string: filter_value}
+
+                if not filter_field.exclude:
+                    filters.update(filter_)
+                else:
+                    excludes.update(filter_)
+
+            except Exception:
+                import sys
+                message += "Filter Error on %s. If you are using the report builder then " % filter_field.field_verbose
+                message += "you found a bug! "
+                message += "If you made this in admin, then you probably did something wrong."
+
+        return (filters, excludes, message)
+
+
+    def __str__(self):
+        return self.field
+
 
     def __unicode__(self):
         return self.field

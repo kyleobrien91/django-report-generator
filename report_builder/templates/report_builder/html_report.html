@@ -3,7 +3,7 @@
 <table id="html_report_table" class="simple_table">
   <thead>
     <tr>
-      {% for header in report.displayfield_set.all %}
+      {% for header in report.report_display_fields.all %}
         <th style="width: {{ header.width }}px">{{ header.name }}</th>
       {% endfor %}
     </tr>

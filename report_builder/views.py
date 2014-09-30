@@ -282,12 +282,12 @@ class AjaxPreview(DataExportMixin, TemplateView):
         context = super(AjaxPreview, self).get_context_data(**kwargs)
         report = get_object_or_404(Report, pk=self.request.POST['report_id'])
         queryset, message = report.get_query()
-        property_filters = report.filterfield_set.filter(
+        property_filters = report.report_filter_fields.filter(
             Q(field_verbose__contains='[property]') | Q(field_verbose__contains='[custom')
         )
         objects_list, message = self.report_to_list(
             queryset,
-            report.displayfield_set.all(),
+            report.report_display_fields.all(),
             self.request.user,
             property_filters=property_filters,
             preview=True,)
@@ -377,19 +377,19 @@ class DownloadXlsxView(DataExportMixin, View):
         user = User.objects.get(pk=user_id)
         if not queryset:
             queryset, message = report.get_query()
-        property_filters = report.filterfield_set.filter(
+        property_filters = report.report_filter_fields.filter(
             Q(field_verbose__contains='[property]') | Q(field_verbose__contains='[custom')
         )
         objects_list, message = self.report_to_list(
             queryset,
-            report.displayfield_set.all(),
+            report.report_display_fields.all(),
             user,
             property_filters=property_filters,
             preview=False,)
         title = re.sub(r'\W+', '', report.name)[:30]
         header = []
         widths = []
-        for field in report.displayfield_set.all():
+        for field in report.report_display_fields.all():
             header.append(field.name)
             widths.append(field.width)
             
@@ -441,12 +441,12 @@ def create_copy(request, pk):
         ('user_modified', request.user),
     ))
     # duplicate does not get related
-    for display in report.displayfield_set.all():
+    for display in report.report_display_fields.all():
         new_display = copy.copy(display)
         new_display.pk = None
         new_display.report = new_report
         new_display.save()
-    for report_filter in report.filterfield_set.all():
+    for report_filter in report.report_filter_fields.all():
         new_filter = copy.copy(report_filter)
         new_filter.pk = None
         new_filter.report = new_report
