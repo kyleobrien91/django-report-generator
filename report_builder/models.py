@@ -20,22 +20,26 @@ class Report(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(verbose_name="Short Name")
     description = models.TextField(blank=True)
-    root_model = models.ForeignKey(ContentType, limit_choices_to={'pk__in':get_allowed_models()})
     created = models.DateField(auto_now_add=True)
     modified = models.DateField(auto_now=True)
-    user_created = models.ForeignKey(AUTH_USER_MODEL, editable=False, blank=True, null=True)
-    user_modified = models.ForeignKey(AUTH_USER_MODEL, editable=False, blank=True, null=True, related_name="report_modified_set")
     distinct = models.BooleanField(default=False)
     report_file = models.FileField(upload_to="report_files", blank=True)
     report_file_creation = models.DateTimeField(blank=True, null=True)
+
+    root_model = models.ForeignKey(ContentType, limit_choices_to={'pk__in':get_allowed_models()})
+    user_created = models.ForeignKey(AUTH_USER_MODEL, editable=False, blank=True, null=True)
+    user_modified = models.ForeignKey(AUTH_USER_MODEL, editable=False, blank=True, null=True,
+                                      related_name="report_modified_set")
     starred = models.ManyToManyField(AUTH_USER_MODEL, blank=True,
                                      help_text="These users have starred this report for easy reference.",
                                      related_name="report_starred_set")
+
 
     def save(self, *args, **kwargs):
         if not self.id:
             unique_slugify(self, self.name)
         super(Report, self).save(*args, **kwargs)
+
 
     def add_aggregates(self, queryset):
         for display_field in self.displayfield_set.filter(aggregate__isnull=False):
@@ -50,7 +54,8 @@ class Report(models.Model):
             elif display_field.aggregate == "Sum":
                 queryset = queryset.annotate(Sum(display_field.path + display_field.field))
         return queryset
-    
+
+
     def get_query(self):
         report = self
         model_class = report.root_model.model_class()
@@ -134,18 +139,20 @@ class Report(models.Model):
             objects = objects.distinct()
 
         return objects, message
-    
-    @models.permalink
+
+
     def get_absolute_url(self):
-        return ("report_update_view", [str(self.id)])
-    
+        return reverse("report_update_view", args=str(self.id))
+
+
     def edit(self):
         return mark_safe('<a href="{0}"><img style="width: 26px; margin: -6px" src="{1}report_builder/img/edit.svg"/></a>'.format(
             self.get_absolute_url(),
             getattr(settings, 'STATIC_URL', '/static/')   
         ))
     edit.allow_tags = True
-    
+
+
     def download_xlsx(self):
         if getattr(settings, 'REPORT_BUILDER_ASYNC_REPORT', False):
             return mark_safe('<a href="#" onclick="get_async_report({0})"><img style="width: 26px; margin: -6px" src="{1}report_builder/img/download.svg"/></a>'.format(
@@ -169,6 +176,7 @@ class Report(models.Model):
     copy_report.short_description = "Copy"
     copy_report.allow_tags = True
 
+
     def check_report_display_field_positions(self):
         """ After report is saved, make sure positions are sane
         """
@@ -182,16 +190,25 @@ class Format(models.Model):
     """ A specifies a Python string format for e.g. `DisplayField`s. 
     """
     name = models.CharField(max_length=50, blank=True, default='')
-    string = models.CharField(max_length=300, blank=True, default='', help_text='Python string format. Ex ${} would place a $ in front of the result.')
+    string = models.CharField(max_length=300, blank=True, default='',
+                              help_text='Python string format. Ex ${} would place a $ in front of the result.')
 
     def __unicode__(self):
         return self.name
     
 
 class DisplayField(models.Model):
-    """ A display field to show in a report. Always belongs to a Report
     """
-    report = models.ForeignKey(Report)
+    A display field to show in a report. Always belongs to a Report
+    """
+    AGGREGATE_CHOICES = (
+        ('Sum','Sum'),
+        ('Count','Count'),
+        ('Avg','Avg'),
+        ('Max','Max'),
+        ('Min','Min'),
+    )
+
     path = models.CharField(max_length=2000, blank=True)
     path_verbose = models.CharField(max_length=2000, blank=True)
     field = models.CharField(max_length=2000)
@@ -200,21 +217,14 @@ class DisplayField(models.Model):
     sort = models.IntegerField(blank=True, null=True)
     sort_reverse = models.BooleanField(verbose_name="Reverse", default=False)
     width = models.IntegerField(default=15)
-    aggregate = models.CharField(
-        max_length=5,
-        choices = (
-            ('Sum','Sum'),
-            ('Count','Count'),
-            ('Avg','Avg'),
-            ('Max','Max'),
-            ('Min','Min'),
-        ),
-        blank = True
-    )
+    aggregate = models.CharField(max_length=5, choices = AGGREGATE_CHOICES, blank = True)
     position = models.PositiveSmallIntegerField(blank = True, null = True)
     total = models.BooleanField(default=False)
     group = models.BooleanField(default=False)
+
+    report = models.ForeignKey(Report)
     display_format = models.ForeignKey(Format, blank=True, null=True)
+
 
     class Meta:
         ordering = ['position']
@@ -245,40 +255,59 @@ class DisplayField(models.Model):
 
     def __unicode__(self):
         return self.name
-        
+
+
 class FilterField(models.Model):
-    """ A display field to show in a report. Always belongs to a Report
     """
+    A display field to show in a report. Always belongs to a Report
+    """
+    FT_EXACT = 'exact'
+    FT_IEXACT = 'iexact'
+    FT_CONTAINS = 'contains'
+    FT_ICONTAINS = 'icontains'
+    FT_IN = 'in'
+    FT_GT = 'gt'
+    FT_GTE = 'gte'
+    FT_LT = 'lt'
+    FT_LTE = 'lte'
+    FT_STARTSWITH = 'startswith'
+    FT_ISTARTSWITH = 'istartswith'
+    FT_ENDSWITH = 'endswith'
+    FT_IENDSWITH = 'iendswith'
+    FT_RANGE = 'range'
+    FT_WEEKDAY = 'week_day'
+    FT_ISNULL = 'isnull'
+    FT_REGEX = 'regex'
+    FT_IREGEX = 'iregex'
+
+
+    FILTER_TYPE_CHOICES = (
+        (FT_EXACT,'Equals'),
+        (FT_IEXACT,'Equals (case-insensitive)'),
+        (FT_CONTAINS,'Contains'),
+        (FT_ICONTAINS,'Contains (case-insensitive)'),
+        (FT_IN,'in (comma seperated 1,2,3)'),
+        (FT_GT,'Greater than'),
+        (FT_GTE,'Greater than equals'),
+        (FT_LT,'Less than'),
+        (FT_LTE,'Less than equals'),
+        (FT_STARTSWITH,'Starts with'),
+        (FT_ISTARTSWITH,'Starts with (case-insensitive)'),
+        (FT_ENDSWITH,'Ends with'),
+        (FT_IENDSWITH,'Ends with  (case-insensitive)'),
+        (FT_RANGE,'range'),
+        (FT_WEEKDAY,'Week day'),
+        (FT_ISNULL,'Is null'),
+        (FT_REGEX,'Regular Expression'),
+        (FT_IREGEX,'Reg. Exp. (case-insensitive)')
+    )
+
     report = models.ForeignKey(Report)
     path = models.CharField(max_length=2000, blank=True)
     path_verbose = models.CharField(max_length=2000, blank=True)
     field = models.CharField(max_length=2000)
     field_verbose = models.CharField(max_length=2000)
-    filter_type = models.CharField(
-        max_length=20,
-        choices = (
-            ('exact','Equals'),
-            ('iexact','Equals (case-insensitive)'),
-            ('contains','Contains'),
-            ('icontains','Contains (case-insensitive)'),
-            ('in','in (comma seperated 1,2,3)'),
-            ('gt','Greater than'),
-            ('gte','Greater than equals'),
-            ('lt','Less than'),
-            ('lte','Less than equals'),
-            ('startswith','Starts with'),
-            ('istartswith','Starts with (case-insensitive)'),
-            ('endswith','Ends with'),
-            ('iendswith','Ends with  (case-insensitive)'),
-            ('range','range'),
-            ('week_day','Week day'),
-            ('isnull','Is null'),
-            ('regex','Regular Expression'),
-            ('iregex','Reg. Exp. (case-insensitive)'),
-        ),
-        blank=True,
-        default = 'icontains',
-    )
+    filter_type = models.CharField(max_length=20, choices = FILTER_TYPE_CHOICES, blank=True, default = FT_ICONTAINS)
     filter_value = models.CharField(max_length=2000)
     filter_value2 = models.CharField(max_length=2000, blank=True)
     exclude = models.BooleanField(default=False)
