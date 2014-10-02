@@ -83,8 +83,73 @@ class Report(models.Model):
             manager = get_model_manager()
             objects = getattr(model_class, manager).all()
 
-        filter_fields = FilterField()
-        filters, excludes, message = filter_fields.get_report_filters(report)
+        # Filters
+        # NOTE: group all the filters together into one in order to avoid
+        # unnecessary joins
+        filters = {}
+        excludes = {}
+
+        all_filter_fields = report.report_filter_fields.all()
+
+        for filter_field in all_filter_fields:
+            try:
+                verbose_name = filter_field.field_verbose
+                filter_type = filter_field.filter_type
+                path = filter_field.path
+                field = filter_field.field
+                filter_string = ''
+                filter_value = filter_field.filter_value
+
+
+                # exclude properties from standard ORM filtering
+                if '[property]' in verbose_name or '[custom' in verbose_name:
+                    continue
+
+                filter_string = str(path + field)
+
+                if filter_type:
+                    filter_string += '__' + filter_type
+
+                # Check for special types such as isnull
+                if filter_type == "isnull" and filter_value == "0":
+                    filter_ = {filter_string: False}
+
+                elif filter_field.filter_type == "in":
+                    filter_ = {filter_string: filter_field.filter_value.split(',')}
+
+                else:
+                    # All filter values are stored as strings, but may need to be converted
+                    if '[Date' in filter_field.field_verbose:
+                        filter_value = parser.parse(filter_field.filter_value)
+                        if settings.USE_TZ:
+                            filter_value = timezone.make_aware(
+                                filter_value,
+                                timezone.get_current_timezone()
+                            )
+                        if filter_field.filter_type == 'range':
+                            filter_value = [filter_value, parser.parse(filter_field.filter_value2)]
+                            if settings.USE_TZ:
+                                filter_value[1] = timezone.make_aware(
+                                    filter_value[1],
+                                    timezone.get_current_timezone()
+                                )
+                    else:
+                        filter_value = filter_field.filter_value
+                        if filter_field.filter_type == 'range':
+                            filter_value = [filter_value, filter_field.filter_value2]
+                    filter_ = {filter_string: filter_value}
+
+                if not filter_field.exclude:
+                    filters.update(filter_)
+                else:
+                    excludes.update(filter_)
+
+            except Exception:
+                import sys
+                e = sys.exc_info()[1]
+                message += "Filter Error on %s. If you are using the report builder then " % filter_field.field_verbose
+                message += "you found a bug! "
+                message += "If you made this in admin, then you probably did something wrong."
 
         if filters:
             objects = objects.filter(**filters)
@@ -100,73 +165,7 @@ class Report(models.Model):
 
         return objects, message
 
-        # Filters
-        # NOTE: group all the filters together into one in order to avoid 
-        # unnecessary joins
-        # filters = {}
-        # excludes = {}
-        #
-        # all_filter_fields = report.report_filter_fields.all()
-        #
-        # for filter_field in all_filter_fields:
-        #     try:
-        #         verbose_name = filter_field.field_verbose
-        #         filter_type = filter_field.filter_type
-        #         path = filter_field.path
-        #         field = filter_field.field
-        #         filter_string = ''
-        #         filter_value = filter_field.filter_value
-        #
-        #
-        #         # exclude properties from standard ORM filtering
-        #         if '[property]' in verbose_name or '[custom' in verbose_name:
-        #             continue
-        #
-        #         filter_string = str(path + field)
-        #
-        #         if filter_type:
-        #             filter_string += '__' + filter_type
-        #
-        #         # Check for special types such as isnull
-        #         if filter_type == "isnull" and filter_value == "0":
-        #             filter_ = {filter_string: False}
-        #
-        #         elif filter_field.filter_type == "in":
-        #             filter_ = {filter_string: filter_field.filter_value.split(',')}
-        #
-        #         else:
-        #             # All filter values are stored as strings, but may need to be converted
-        #             if '[Date' in filter_field.field_verbose:
-        #                 filter_value = parser.parse(filter_field.filter_value)
-        #                 if settings.USE_TZ:
-        #                     filter_value = timezone.make_aware(
-        #                         filter_value,
-        #                         timezone.get_current_timezone()
-        #                     )
-        #                 if filter_field.filter_type == 'range':
-        #                     filter_value = [filter_value, parser.parse(filter_field.filter_value2)]
-        #                     if settings.USE_TZ:
-        #                         filter_value[1] = timezone.make_aware(
-        #                             filter_value[1],
-        #                             timezone.get_current_timezone()
-        #                         )
-        #             else:
-        #                 filter_value = filter_field.filter_value
-        #                 if filter_field.filter_type == 'range':
-        #                     filter_value = [filter_value, filter_field.filter_value2]
-        #             filter_ = {filter_string: filter_value}
-        #
-        #         if not filter_field.exclude:
-        #             filters.update(filter_)
-        #         else:
-        #             excludes.update(filter_)
-        #
-        #     except Exception:
-        #         import sys
-        #         e = sys.exc_info()[1]
-        #         message += "Filter Error on %s. If you are using the report builder then " % filter_field.field_verbose
-        #         message += "you found a bug! "
-        #         message += "If you made this in admin, then you probably did something wrong."
+
 
 
 
