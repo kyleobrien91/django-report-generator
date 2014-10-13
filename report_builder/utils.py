@@ -2,6 +2,7 @@ import copy
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 import inspect
+from django.utils import timezone
 
 def javascript_date_format(python_date_format):
     format = python_date_format.replace(r'Y', 'yyyy')
@@ -189,3 +190,6 @@ def get_model_from_path_string(root_model, path):
                 root_model = field_object.model
 
     return root_model
+
+def get_aware_time(value):
+    return timezone.make_aware(value, timezone.get_current_timezone())

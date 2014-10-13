@@ -6,5 +6,5 @@ that I had a different idea of how to implement certain aspects of the report bu
 So, Django Report Generator was born.
 
 ### TODO
-* Add or filters to filter fields tab
+* OR filters added - need to add nested OR and AND filters
 * Display filter field errors in line

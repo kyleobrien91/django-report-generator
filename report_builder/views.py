@@ -71,7 +71,7 @@ class FilterFieldForm(forms.ModelForm):
     class Meta:
         model = FilterField
         fields = ('path', 'path_verbose', 'field_verbose', 'field', 'filter_type',
-                 'filter_value', 'filter_value2', 'exclude', 'position')
+                 'filter_value', 'filter_value2', 'exclude', 'position', 'or_filter')
         widgets = {
             'path': forms.HiddenInput(),
             'path_verbose': forms.TextInput(attrs={'readonly':'readonly'}),
@@ -282,12 +282,12 @@ class AjaxPreview(DataExportMixin, TemplateView):
         context = super(AjaxPreview, self).get_context_data(**kwargs)
         report = get_object_or_404(Report, pk=self.request.POST['report_id'])
         queryset, message = report.get_query()
-        property_filters = report.report_filter_fields.filter(
+        property_filters = report.filterfield_set.filter(
             Q(field_verbose__contains='[property]') | Q(field_verbose__contains='[custom')
         )
         objects_list, message = self.report_to_list(
             queryset,
-            report.report_display_fields.all(),
+            report.displayfield_set.all(),
             self.request.user,
             property_filters=property_filters,
             preview=True,)
@@ -377,19 +377,19 @@ class DownloadXlsxView(DataExportMixin, View):
         user = User.objects.get(pk=user_id)
         if not queryset:
             queryset, message = report.get_query()
-        property_filters = report.report_filter_fields.filter(
+        property_filters = report.filterfield_set.filter(
             Q(field_verbose__contains='[property]') | Q(field_verbose__contains='[custom')
         )
         objects_list, message = self.report_to_list(
             queryset,
-            report.report_display_fields.all(),
+            report.displayfield_set.all(),
             user,
             property_filters=property_filters,
             preview=False,)
         title = re.sub(r'\W+', '', report.name)[:30]
         header = []
         widths = []
-        for field in report.report_display_fields.all():
+        for field in report.displayfield_set.all():
             header.append(field.name)
             widths.append(field.width)
             
@@ -441,12 +441,12 @@ def create_copy(request, pk):
         ('user_modified', request.user),
     ))
     # duplicate does not get related
-    for display in report.report_display_fields.all():
+    for display in report.displayfield_set.all():
         new_display = copy.copy(display)
         new_display.pk = None
         new_display.report = new_report
         new_display.save()
-    for report_filter in report.report_filter_fields.all():
+    for report_filter in report.filterfield_set.all():
         new_filter = copy.copy(report_filter)
         new_filter.pk = None
         new_filter.report = new_report

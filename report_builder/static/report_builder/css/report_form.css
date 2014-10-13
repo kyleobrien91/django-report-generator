@@ -97,7 +97,9 @@ div#report_container .droppable {
     background: #F9F9F9;
     margin: 10px;
     border-radius: 4px;
-    padding-bottom: 30px;
+    padding-bottom: 0;
+    width: 100%;
+    display: inline-block;
 }
 
 div#report_container .simple_table {
@@ -206,4 +208,57 @@ div#report_container .collapsed {
     display: block;
     overflow: hidden;
     padding-left: 2px;
+}
+
+div.table_replacement{
+    font-family: Georgia,"Times New Roman","Bitstream Charter",Times,serif;
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 1.3em;
+    width: 100%;
+    display: inline-block;
+}
+
+div.table_replacement > div.header_row {
+    width: 100%;
+    display: inline-block;
+}
+
+div.table_replacement > div.header_row > ul {
+    position: relative;
+    float:left;
+    width: 100%;
+}
+
+div.table_replacement > div.header_row > ul > li {
+    list-style: none;
+    float: left;
+    position: relative;
+}
+
+ol.sortable li > div > div {
+    float:left;
+    position:relative;
+}
+
+ol.sortable > li {
+    width: 100%;
+    clear:both;
+    list-style: none;
+    margin: 10px 0 10px 0;
+}
+
+#field_filter_droppable {
+    padding-bottom: 0;
+    width: 100%;
+    display: inline-block;
+}
+
+.field-drop-area {
+    width: 96%;
+    float: left;
+    text-align: center;
+    padding: 1%;
+    margin: 1%;
+    border: 4px dashed grey;
 }

@@ -3,7 +3,6 @@ from six import BytesIO, text_type
 from django.http import HttpResponse
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.fields.related import ReverseManyRelatedObjectsDescriptor
-from django.core import exceptions
 from django.db.models import Avg, Count, Sum, Max, Min
 from openpyxl.workbook import Workbook
 from openpyxl.writer.excel import save_virtual_workbook

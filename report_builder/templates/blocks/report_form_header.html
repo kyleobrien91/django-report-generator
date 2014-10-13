@@ -1,0 +1,14 @@
+<header class="report_top">
+    <div id="report_id" data-id="{{ object.id }}">
+        <span class="pull_right">
+            Last updated: {{ object.modified }}
+            Model: {{ object.root_model }}
+        </span>
+        <span class="pull_left">
+            {{ form.name }}
+        </span>
+        <span class="fill_area">
+            {{ form.description }}
+        </span>
+    </div>
+</header>

@@ -1,0 +1,7 @@
+<section class="bottom_half">
+    Fields-drag to add
+    <input type="text" class="search_box" onkeyup="filter(this, 'field_selection_div')" placeholder="Search Fields"/>
+    <div id="field_selection_div">
+        {% include "report_builder/report_form_fields_li.html" %}
+    </div>
+</section>
