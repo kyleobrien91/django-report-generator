@@ -117,9 +117,7 @@ class Report(models.Model):
         Returns the report's edit URL
         :return: SafeText
         """
-        absolute_url = reverse("report_update_view", args=str(self.id))
-
-        return absolute_url
+        return reverse("report_update_view", args=str(self.id))
 
     def edit(self):
         """

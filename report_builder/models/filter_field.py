@@ -103,7 +103,7 @@ class FilterField(models.Model):
                     continue
 
                 if filter_type:
-                    filter_string += '__' + filter_type
+                    filter_string += f'__{filter_type}'
 
                 # Check for special types such as isnull
                 if filter_type == FilterField.FT_ISNULL and field_filter_value == "0":
@@ -114,24 +114,22 @@ class FilterField(models.Model):
                     # All filter values are stored as strings, but may need to be converted
                     if '[Date' in field_verbose:
                         filter_value = FilterField.get_date_filter_value(filter_field)
+                    elif filter_type == FilterField.FT_RANGE:
+                        filter_value = [field_filter_value, field_filter_value2]
                     else:
-                        if filter_type == FilterField.FT_RANGE:
-                            filter_value = [field_filter_value, field_filter_value2]
-                        else:
-                            filter_value = field_filter_value
+                        filter_value = field_filter_value
 
                     filter_ = (filter_string    , filter_value)
 
-                if not filter_field.exclude:
-                    if filter_field.or_filter == True:
-                        or_filters.append(filter_)
-                    else:
-                        and_filters.append(filter_)
-                else:
+                if filter_field.exclude:
                     excludes.update(filter_)
+                elif filter_field.or_filter == True:
+                    or_filters.append(filter_)
+                else:
+                    and_filters.append(filter_)
             except Exception:
                 import sys
-                message += "Filter Error on %s. If you are using the report builder then " % filter_field.field_verbose
+                message += f"Filter Error on {filter_field.field_verbose}. If you are using the report builder then "
                 message += "you found a bug! "
                 message += "If you made this in admin, then you probably did something wrong."
 

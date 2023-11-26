@@ -76,7 +76,7 @@ class DataExportMixin(object):
         response = HttpResponse(
             myfile.getvalue(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename=%s' % title
+        response['Content-Disposition'] = f'attachment; filename={title}'
         response['Content-Length'] = myfile.tell()
         return response
 
@@ -87,13 +87,11 @@ class DataExportMixin(object):
         title = re.sub(r'\W+', '', title)[:30]
 
         if isinstance(data, dict):
-            i = 0
-            for sheet_name, sheet_data in data.items():
+            for i, (sheet_name, sheet_data) in enumerate(data.items()):
                 if i > 0:
                     wb.create_sheet()
                 ws = wb.worksheets[i]
                 self.build_sheet(sheet_data, ws, sheet_name=sheet_name, header=header)
-                i += 1
         else:
             ws = wb.worksheets[0]
             self.build_sheet(data, ws, header=header, widths=widths)

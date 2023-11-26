@@ -42,17 +42,16 @@ def duplicate(obj, changes=None):
     return duplicate
 
 def get_model_manager():
-        """
+    """
         Get  manager from settings else use objects
         """
-        from django.conf import settings
+    from django.conf import settings
 
-        model_manager = 'objects'
-
-        if getattr(settings, 'REPORT_BUILDER_MODEL_MANAGER', False):
-            model_manager = settings.REPORT_BUILDER_MODEL_MANAGER
-
-        return model_manager
+    return (
+        settings.REPORT_BUILDER_MODEL_MANAGER
+        if getattr(settings, 'REPORT_BUILDER_MODEL_MANAGER', False)
+        else 'objects'
+    )
 
 def get_allowed_models():
         models = ContentType.objects.all()
@@ -167,8 +166,7 @@ def get_custom_fields_from_model(model_class):
             content_type = ContentType.objects.get(model=model_class._meta.module_name,app_label=model_class._meta.app_label)
         except ContentType.DoesNotExist:
             content_type = None
-        custom_fields = CustomField.objects.filter(content_type=content_type)
-        return custom_fields
+        return CustomField.objects.filter(content_type=content_type)
 
 
 def get_model_from_path_string(root_model, path):

@@ -99,7 +99,7 @@ class ReportCreateView(CreateView):
 def filter_property(filter_field, value):
     filter_type = filter_field.filter_type
     filter_value = filter_field.filter_value
-    filtered = True 
+    filtered = True
     #TODO: i10n
     WEEKDAY_INTS = {
         'monday': 0,
@@ -125,7 +125,7 @@ def filter_property(filter_field, value):
         if filter_type == 'in' and value in filter_value:
             filtered = False
         # convert dates and datetimes to timestamps in order to compare digits and date/times the same
-        if isinstance(value, datetime.datetime) or isinstance(value, datetime.date): 
+        if isinstance(value, (datetime.datetime, datetime.date)): 
             value = str(time.mktime(value.timetuple())) 
             try:
                 filter_value_dt = parser.parse(filter_value)
@@ -152,7 +152,7 @@ def filter_property(filter_field, value):
             filtered = False
         if filter_type == 'week_day' and WEEKDAY_INTS.get(str(filter_value).lower()) == value.weekday:
             filtered = False
-        if filter_type == 'isnull' and value == None:
+        if filter_type == 'isnull' and value is None:
             filtered = False
         if filter_type == 'regex' and re.search(filter_value, value):
             filtered = False
@@ -161,9 +161,7 @@ def filter_property(filter_field, value):
     except:
         pass
 
-    if filter_field.exclude:
-        return not filtered
-    return filtered 
+    return not filtered if filter_field.exclude else filtered 
 
 
 class AjaxGetRelated(GetFieldsMixin, TemplateView):
@@ -198,14 +196,12 @@ class AjaxGetRelated(GetFieldsMixin, TemplateView):
 def fieldset_string_to_field(fieldset_dict, model):
     if isinstance(fieldset_dict['fields'], tuple):
         fieldset_dict['fields'] = list(fieldset_dict['fields'])
-    i = 0
-    for dict_field in fieldset_dict['fields']:
+    for i, dict_field in enumerate(fieldset_dict['fields']):
         if isinstance(dict_field, basestring):
             fieldset_dict['fields'][i] = model._meta.get_field_by_name(dict_field)[0]
-        elif isinstance(dict_field, list) or isinstance(dict_field, tuple):
+        elif isinstance(dict_field, (list, tuple)):
             dict_field[1]['recursive'] = True
             fieldset_string_to_field(dict_field[1], model)
-        i += 1
 
 def get_fieldsets(model):
     """
@@ -355,17 +351,19 @@ class ReportUpdateView(GetFieldsMixin, UpdateView):
         context = self.get_context_data()
         field_list_formset = context['field_list_formset']
         field_filter_formset = context['field_filter_formset']
-        
-        if field_list_formset.is_valid() and field_filter_formset.is_valid():
-            self.object = form.save()
-            field_list_formset.report = self.object
-            field_list_formset.save()
-            field_filter_formset.report = self.object
-            field_filter_formset.save()
-            self.object.check_report_display_field_positions()
-            return HttpResponseRedirect(self.get_success_url())
-        else:
+
+        if (
+            not field_list_formset.is_valid()
+            or not field_filter_formset.is_valid()
+        ):
             return self.render_to_response(self.get_context_data(form=form))
+        self.object = form.save()
+        field_list_formset.report = self.object
+        field_list_formset.save()
+        field_filter_formset.report = self.object
+        field_filter_formset.save()
+        self.object.check_report_display_field_positions()
+        return HttpResponseRedirect(self.get_success_url())
         
 class DownloadXlsxView(DataExportMixin, View):
     @method_decorator(staff_member_required)
@@ -403,18 +401,17 @@ class DownloadXlsxView(DataExportMixin, View):
         if not title.endswith('.xlsx'):
             title += '.xlsx'
         report.report_file.save(title, ContentFile(xlsx_file.getvalue()))
-        report.report_file_creation = datetime.datetime.today()
+        report.report_file_creation = datetime.datetime.now()
         report.save()
     
     def get(self, request, *args, **kwargs):
         report_id = kwargs['pk']
-        if getattr(settings, 'REPORT_BUILDER_ASYNC_REPORT', False):
-            from .tasks import report_builder_async_report_save
-            report_task = report_builder_async_report_save.delay(report_id, request.user.pk)
-            task_id = report_task.task_id
-            return HttpResponse(json.dumps({'task_id': task_id}), content_type="application/json")
-        else:
+        if not getattr(settings, 'REPORT_BUILDER_ASYNC_REPORT', False):
             return self.process_report(report_id, request.user.pk, to_response=True)
+        from .tasks import report_builder_async_report_save
+        report_task = report_builder_async_report_save.delay(report_id, request.user.pk)
+        task_id = report_task.task_id
+        return HttpResponse(json.dumps({'task_id': task_id}), content_type="application/json")
     
 
 @staff_member_required

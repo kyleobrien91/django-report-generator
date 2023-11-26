@@ -54,11 +54,10 @@ class DisplayField(models.Model):
 
     @property
     def choices_dict(self):
-        choices = self.choices
         choices_dict = {}
-        if choices:
+        if choices := self.choices:
             for choice in choices:
-                choices_dict.update({choice[0]: choice[1]})
+                choices_dict[choice[0]] = choice[1]
         return choices_dict
 
     @property

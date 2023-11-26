@@ -26,10 +26,7 @@ class UtilityFunctionTests(TestCase):
             filter_value = 'Lots of spam')
     
     def get_fields_names(self, fields):
-        names = []
-        for field in fields:
-            names += [field.name]
-        return names
+        return [field.name for field in fields]
 
     def test_get_relation_fields_from_model(self):
         fields = get_relation_fields_from_model(Report)
